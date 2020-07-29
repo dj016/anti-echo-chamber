@@ -1,0 +1,180 @@
+{% extends "base.html" %} {% block title %} Home page {%endblock%} {% block
+content %}
+
+<div class="row" style="margin-top: 50px;">
+  <div class="col-8">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title" id="title">Card title</h5>
+        <div class="container">
+          <br />
+          <div class="row">
+            <h6
+              class="card-subtitle mb-2 text-muted"
+              id="source"
+              style="margin-right: auto;"
+            >
+              Card subtitle
+            </h6>
+            <h6
+              class="card-subtitle mb-2 text-muted"
+              id="date"
+              style="margin-left: auto;"
+            >
+              Card subtitle
+            </h6>
+          </div>
+        </div>
+        <hr />
+
+        <p class="card-text" id="body">
+          Some quick example text to build on the card title and make up the
+          bulk of the card's content.
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="col-4">
+    <div class="col">
+      <div class="card" >
+        <div id='score' style="padding-top: 60px;padding-left: 90px;"><!-- Plotly chart will be drawn inside this DIV --></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card" id="recommendations" style="margin-top: 30px; padding: 10px;">
+        Your Recomendations:
+      </div>
+    </div>
+  </div>
+</div>
+{%endblock%} {%block script %}
+<script>
+  getRandomArticle();
+  getScore();
+  getRecommendations();
+  function getRecommendations() {
+    fetch(`${window.origin}/getRecommendations`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-cache",
+      headers: new Headers({ "content-type": "application/json" }),
+    }).then(function (response) {
+      if (response.status != 200) {
+        console.log("Error in fetching the score");
+        return;
+      }
+      response.json().then(function (data) {
+        console.log(data);
+        var list = document.getElementById("recommendations");
+        data.forEach((element) => {
+          var a = document.createElement("a");
+          // Create the text node for anchor element.
+          var link = document.createTextNode(element["title"]);
+          // Append the text node to anchor element.
+          a.appendChild(link);
+          // Set the title.
+          a.title = "This is Link";
+          // Set the href property.
+          a.onclick = () => getArticleById(element["id"]);
+          // Append the anchor element to the body.
+          list.appendChild(document.createElement("hr"));
+          list.appendChild(a);
+        });
+      });
+    });
+  }
+  function getScore() {
+    fetch(`${window.origin}/getScore`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-cache",
+      headers: new Headers({ "content-type": "application/json" }),
+    }).then(function (response) {
+      if (response.status != 200) {
+        console.log("Error in fetching the score");
+        return;
+      }
+      response.json().then(function (res) {
+        console.log(res);
+        var data = [
+  {
+    type: "indicator",
+    value: res['score'],
+    gauge: { axis: { visible: false, range: [0, 100] } },
+    domain: { row: 0, column: 0 }
+  },
+ 
+ 
+  
+];
+
+var layout = {
+  width:300,
+  height: 200,
+  margin: { t: 25, b: 25, l: 25, r: 25 },
+  grid: { rows: 2, columns: 2, pattern: "independent" },
+  template: {
+    data: {
+      indicator: [
+        {
+          title: { text: "Overview Score" },
+          mode: "number+gauge",
+          
+        }
+      ]
+    }
+  }
+};
+
+Plotly.newPlot('score', data, layout);
+      });
+    });
+  }
+  function getArticleById(id) {
+    document.getElementById("recommendations").innerHTML =
+      "Your Recommendations:";
+    fetch(`${window.origin}/getArticleById/${id}`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-cache",
+      headers: new Headers({ "content-type": "application/json" }),
+    }).then(function (response) {
+      if (response.status != 200) {
+        console.log("Error in fetching the article");
+        return;
+      }
+      response.json().then(function (data) {
+        console.log(data);
+        document.getElementById("title").innerHTML = data.title;
+        document.getElementById("body").innerHTML = data.body;
+        document.getElementById("source").innerHTML = data.source;
+        var date = data.date.substring(0, data.date.indexOf(" "));
+        document.getElementById("date").innerHTML = date;
+      });
+      getScore();
+      getRecommendations();
+    });
+  }
+  function getRandomArticle() {
+    fetch(`${window.origin}/getRandomArticle`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-cache",
+      headers: new Headers({ "content-type": "application/json" }),
+    }).then(function (response) {
+      if (response.status != 200) {
+        console.log("Error in fetching the article");
+        return;
+      }
+      response.json().then(function (data) {
+        console.log(data);
+        document.getElementById("title").innerHTML = data.title;
+        document.getElementById("body").innerHTML = data.body;
+        document.getElementById("source").innerHTML = data.source;
+        var date = data.date.substring(0, data.date.indexOf(" "));
+        document.getElementById("date").innerHTML = date;
+      });
+    });
+  }
+</script>
+{%endblock%}
