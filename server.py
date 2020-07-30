@@ -2,6 +2,8 @@ from flask import Flask,redirect,url_for,render_template, session, request, flas
 from flask_sqlalchemy import SQLAlchemy
 import json
 import random
+import pandas as pd 
+import numpy as np
 
 app= Flask(__name__)
 app.secret_key="hello"
@@ -36,7 +38,7 @@ def getCompletedList():
 
 @app.route("/populateDatabase")
 def populateDatabase():
-    with open('C:/Users/dhagarw/projects/aec/ParsedDataSet/news.json') as f:
+    with open('C:/Users/dhagarw/projects/aec/Source.json',encoding="utf8") as f:
         data=json.load(f)
         for x in data:
             art= article(x.get('title'),x.get('body'),x.get('published_at'),x.get('source'),False)
@@ -85,20 +87,23 @@ def getScore():
 
 @app.route("/getRecommendations")
 def getrecommendations():
-    recommendation=[]
     presentArticle= int(session['presentArticle'])
     #############################################    Here we need to get the recomendation from the model
-    for x in range(3):
-        recommendation.append(random.randint(0,1427))
+    recommendation=get_recommendations(presentArticle)
+    #recommendation=[8,17,21]
+    print(recommendation)
     result=[]
     for x in recommendation:
         art={}
-        news=article.query.filter_by(_id=x).first()
-        art['title']=news.title
-        art['id']=x
-        art['source']=news.source
-        art['date']=news.date
-        result.append(art)
+        news=article.query.filter_by(_id=int(x)).first()
+        if news != None:
+            art['title']=news.title
+            art['id']=str(x)
+            art['source']=news.source
+            art['date']=news.date
+            result.append(art)
+        else:
+            print("couldnot find the article")
     res= make_response(jsonify(result),200)
     return res
 
@@ -138,6 +143,83 @@ def about():
         return render_template("about.html",loggedin=True )
     else:
         return render_template("about.html",loggedin= False)
+
+
+def load_file():
+    article_list = []
+    with open(f'News.json', encoding='utf8') as f:
+        article_list.extend(json.load(f))
+
+    df = pd.DataFrame(article_list)
+    df_bert = pd.DataFrame(df.bert_embeddings.to_list()).add_prefix('bert_')
+    df = pd.concat([df.iloc[:, 0:6], df_bert], axis = 1)
+    
+    return df
+
+def load_dictcluster():
+    d_cluster = {}
+    dict_cluster = {}
+
+    with open('DictCluster.json', encoding='utf8') as f:
+        d_cluster = json.load(f)
+
+    for k in d_cluster.keys():
+        values = []
+        values.append(np.asarray(d_cluster[k][0]))
+        values.append(pd.Series(d_cluster[k][1]))
+        dict_cluster[k]= values
+        
+    return dict_cluster
+
+    
+def f_get_distance(a, b, dist = 'euclidean'):
+    """
+    compute distance 
+    """
+
+    return np.sum(np.square(a-b)) if dist == 'euclidean' else -np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b))
+
+
+def f_get_top_n_dist_cluster(article_data, cluster_centers, top_n = 3, offset = 0):
+    """
+    return the farthest [offset+1, offset+n_top] sub-clusters for recommendation
+    """
+    
+    clust_to_rec = pd.DataFrame(cluster_centers).apply(lambda x: f_get_distance(x, article_data), axis = 1).argsort()[-(1+offset):-(offset+top_n+1):-1]
+
+    return clust_to_rec.to_list()
+
+def f_get_article(article_data, cluster_centers, clust_assign, top_n = 3, offset = 0):
+    """
+    return idx of recommended articles
+    """
+
+    clust_to_rec = f_get_top_n_dist_cluster(article_data, cluster_centers, top_n, offset)
+
+    return [np.random.choice(clust_assign.index[clust_assign == i]) for i in clust_to_rec]
+
+def get_recommendations(article_number):
+    
+    n_data = 3      # from 1 to 119
+    n_c = 20          # num of clusters within each topic group
+    offset = n_c//2   # recommend from the farthest [offset+1, offset+n_top] clusters within each topic group
+    n_top = 3
+    
+    df = load_file()
+    dict_cluster = load_dictcluster()
+    
+    idx_article = article_number
+    
+    idx_col = df.columns[df.columns.str.contains('bert')]
+    article_data = df.loc[idx_article, idx_col]
+    clust_article = df.loc[idx_article, 'dominant_topic']
+
+    clust_centers = dict_cluster[clust_article][0]
+    clust_assign = dict_cluster[clust_article][1]
+
+    idx_rec = f_get_article(article_data, clust_centers, clust_assign, top_n = n_top, offset = offset)
+    
+    return idx_rec
 
 
 if __name__ =="__main__":
