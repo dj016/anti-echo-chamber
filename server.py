@@ -21,12 +21,13 @@ class article(db.Model):
     completed= db.Column("completed",db.Boolean)
 
 
-    def __init__(self,title,body,date,source,completed):
+    def __init__(self,title,body,date,source,uid,completed):
         self.title=title
         self.body=body
         self.date=date
         self.source=source
         self.completed=completed
+        self._id=uid
 
 @app.route("/getCompletedList")
 def getCompletedList():
@@ -41,7 +42,7 @@ def populateDatabase():
     with open('C:/Users/dhagarw/projects/aec/Source.json',encoding="utf8") as f:
         data=json.load(f)
         for x in data:
-            art= article(x.get('title'),x.get('body'),x.get('published_at'),x.get('source'),False)
+            art= article(x.get('title'),x.get('body'),x.get('published_at'),x.get('source'),x.get('id'),False)
             db.session.add(art)
         db.session.commit()
     return "Database populated with all the articles !"
@@ -166,7 +167,11 @@ def load_dictcluster():
     for k in d_cluster.keys():
         values = []
         values.append(np.asarray(d_cluster[k][0]))
-        values.append(pd.Series(d_cluster[k][1]))
+        #values.append(pd.Series(d_cluster[k][1]))
+        s_values = d_cluster[k][1]
+        s_index = d_cluster[k][2]
+        series_obj = pd.Series(s_values, index=s_index)
+        values.append(series_obj)
         dict_cluster[k]= values
         
     return dict_cluster
@@ -198,6 +203,17 @@ def f_get_article(article_data, cluster_centers, clust_assign, top_n = 3, offset
 
     return [np.random.choice(clust_assign.index[clust_assign == i]) for i in clust_to_rec]
 
+# def f_view_article(idx, df, idx_col = df.columns[0:4]):
+#     """
+#     view the content of the article with index == idx 
+#     """
+
+#     if type(idx) == int:
+#         return pd.DataFrame(df.loc[idx, idx_col]).T
+
+#     return df.loc[idx, idx_col]
+    
+
 def get_recommendations(article_number):
     
     n_data = 3      # from 1 to 119
@@ -214,6 +230,7 @@ def get_recommendations(article_number):
     article_data = df.loc[idx_article, idx_col]
     clust_article = df.loc[idx_article, 'dominant_topic']
 
+    
     clust_centers = dict_cluster[clust_article][0]
     clust_assign = dict_cluster[clust_article][1]
 
