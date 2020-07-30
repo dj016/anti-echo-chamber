@@ -46,6 +46,7 @@ def populateDatabase():
 
 @app.route("/getArticleById/<uid>")
 def getArticleById(uid):
+    session['presentArticle']=uid
     art={}
     news=article.query.filter_by(_id=uid).first()
     news.completed= True
@@ -61,6 +62,7 @@ def getArticleById(uid):
 @app.route("/getRandomArticle")
 def getRandomArticle():
     uid=random.randint(0,1427)
+    session['presentArticle']=uid
     art={}
     news=article.query.filter_by(_id=uid).first()
     news.completed= True
@@ -84,6 +86,7 @@ def getScore():
 @app.route("/getRecommendations")
 def getrecommendations():
     recommendation=[]
+    presentArticle= int(session['presentArticle'])
     #############################################    Here we need to get the recomendation from the model
     for x in range(3):
         recommendation.append(random.randint(0,1427))
